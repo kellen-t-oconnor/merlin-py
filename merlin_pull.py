@@ -97,7 +97,7 @@ def data_pull(table,path,out_shape, output_path, miss_path):
         ned_pg_len=len(ned_pg)
 
         progress_count = progress_count + 1
-        #READD #print("Worker PDF Count: " + str(progress_count) + "/" + num_pdf + " on " + str(row['filename']))
+        print("Worker PDF Count: " + str(progress_count) + "/" + num_pdf + " on " + str(row['filename']))
 
         if ned_pg_len!=0:
             file=path+'/'+row['filename']
