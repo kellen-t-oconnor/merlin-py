@@ -4,15 +4,16 @@ author: "Kellen O'Connor"
 date: "January 2020"
 """
 
-import os
+import os, shutil
 import tabula
 import pandas as pd
 import numpy as np
-from os.path import expanduser
+from os.path import expanduser, getsize
 home = os.path.expanduser('~')
 pd.set_option('display.max_colwidth', 255)
 import camelot
-import time
+import queue
+#import time
 
 
 def page_index (path, field, avoid):
@@ -73,14 +74,15 @@ def create_tblcntnts_artifact (index_results):
     table_pages['needed_page_length']=table_pages['needed_pages'].str.len()
     return table_pages
 
-def generate_tblcntnts (path, field, avoid, tblcntntspath):
+def generate_tblcntnts (path, field, avoid, results): #, tblcntntspath):
     index_results=page_index(path, field, avoid)
     table=create_tblcntnts_artifact(index_results)
     table['needed_pages'] = table['needed_pages'].astype(str)
     table['needed_pages'] = table['needed_pages'].str.replace(r"\[","")
     table['needed_pages'] = table['needed_pages'].str.replace(r"\]","")
-    table.to_csv(tblcntntspath)
-    return table
+    results.put(table)
+    #table.to_csv(tblcntntspath)
+    #return table
 
 def data_pull(table,path,out_shape, output_path, miss_path):
     missed_list=[]
@@ -95,10 +97,10 @@ def data_pull(table,path,out_shape, output_path, miss_path):
         ned_pg_len=len(ned_pg)
 
         progress_count = progress_count + 1
-        print("Worker PDF Count: " + str(progress_count) + "/" + num_pdf + " on " + str(row['filename']))
+        #READD #print("Worker PDF Count: " + str(progress_count) + "/" + num_pdf + " on " + str(row['filename']))
 
         if ned_pg_len!=0:
-            file=path+'\\'+row['filename']
+            file=path+'/'+row['filename']
             tbls=camelot.read_pdf(file,pages=ned_pg)
             for  i in tbls:
                 temp_df=i.df
@@ -106,29 +108,50 @@ def data_pull(table,path,out_shape, output_path, miss_path):
                     temp_df = temp_df.replace(to_replace='\n', value=' ', regex= True)
                     temp_df['file'] = row['filename']
                     temp_df.to_csv(output_path, mode='a', header='False')
-                    print("Tables found matching selected shape in file "+row['filename'])
+                    #READD #print("Tables found matching selected shape in file "+row['filename'])
                 else:
                     temp_df.to_csv(miss_path, mode='a', header='False')
-                    print("No tables matching selected shape in file "+row['filename']+" despite being flagged in step 1, appending to missed output file...")
+                    #READD #print("No tables matching selected shape in file "+row['filename']+" despite being flagged in step 1, appending to missed output file...")
         else:
-            print('Issue with '+row['filename']+'... Its likely that it didnt somehow meet the search critera.')
+            #READD #print('Issue with '+row['filename']+'... Its likely that it didnt somehow meet the search critera.')
             missed_list.append(row['filename'])
-        cycle_end=time.clock()
+        #cycle_end=time.clock()
         #print(cycle_end - cycle_time)
+    print("OUT OF LOOP")
 
 
 
 def input_data_split(table,threads=1):
+    bins = [pd.DataFrame(columns = ['filename', 'filetype','non_990','needed_pages', 'needed_page_length'])]*threads
+
     if threads == 1:
-        bin_1=table
+        bins.append(table)
 
-    if threads == 2:
+    #if threads == 2:
+    #    table_length = len(table)
+    #    middle_of_file = table_length / 2
+    #    bin_1=table[:int(middle_of_file)]
+    #    bin_2=table[int(middle_of_file):]
+
+    else:
         table_length = len(table)
-        middle_of_file = table_length / 2
-        bin_1=table[:int(middle_of_file)]
-        bin_2=table[int(middle_of_file):]
+        table.sort_values(by='needed_page_length', ascending=False)
+        bins_sizes = [0] * threads
+        for index, row in table.iterrows():
+            place = bins_sizes.index(min(bins_sizes))
+            bins_sizes[place] += int(row['needed_page_length'])
+            bins[place] = bins[place].append(row)
 
-    return bin_1, bin_2
+        #bin_size = int(table_length/threads)
+        #current_file = 0
+        #for i in range(threads):
+        #    if i < threads - 1:
+        #        bins.append(table[current_file : current_file + bin_size])
+        #    else:
+        #        bins.append(table[current_file:])
+        #    current_file += bin_size
+
+    return bins
 
 def multi_run_wrapper(args):
     return data_pull(*args)
@@ -136,12 +159,44 @@ def multi_run_wrapper(args):
 
 def extract(path, field, avoid, output, missedoutput, tableshape, threads, tblcntntspath):
     if threads == 1:
-        table = generate_tblcntnts(path=path, field=field,avoid=avoid, tblcntntspath=tblcntntspath)
+        results = queue.Queue()
+        generate_tblcntnts(path=path, field=field,avoid=avoid, results=results) #, tblcntntspath=tblcntntspath)
+        table = results.get()
+        table.to_csv(tblcntntspath)
         data_pull(table=table,path=path,out_shape=tableshape,output_path=output,miss_path=missedoutput)
-    if threads == 2:
-        table = generate_tblcntnts(path=path, field=field,avoid=avoid, tblcntntspath=tblcntntspath)
-        bin_1, bin_2 = input_data_split(table=table, threads=2)
+    #if threads == 2:
+    else:
+        table = pd.DataFrame(columns = ['filename', 'filetype','non_990','needed_pages', 'needed_page_length'])
+        files = [f for f in os.listdir(path) if not f.startswith('.')]
+        files.sort(key=lambda file: sort_files(file, path))
+        for i in range(threads):
+            os.mkdir(path+"/tmp"+str(i))
+        dir_sizes = [0]*threads
+        for file in files:
+            dir = dir_sizes.index(min(dir_sizes))
+            shutil.copy(path+'/'+file, path+"/tmp"+str(dir))
+            dir_sizes[dir] += os.path.getsize(path+'/'+file)
+        #table = generate_tblcntnts(path=path, field=field,avoid=avoid, tblcntntspath=tblcntntspath)
+        from threading import Thread
+        thread_list = [None]*threads
+        results = queue.Queue()
+        for i in range(threads):
+            thread_list[i] = Thread(target=generate_tblcntnts, args=(path+"/tmp"+str(i), field, avoid, results)) #, tblcntntspath))
+            thread_list[i].start()
+        for i in range(threads):
+            thread_list[i].join()
+            shutil.rmtree(path+"/tmp"+str(i))
+        while(results.qsize() > 0):
+            result = results.get()
+            table = table.append(result)
+        table.to_csv(tblcntntspath)
+        bins = input_data_split(table=table, threads=threads)
+        data_pull_args = []
+        for i in range(len(bins)):
+            data_pull_args.append((bins[i], path, tableshape, output, missedoutput))
         from multiprocessing import Pool
-        pool = Pool(2)
-        pool.map(multi_run_wrapper,[(bin_1, path, tableshape, output, missedoutput),
-                                    (bin_2, path, tableshape, output, missedoutput)])
+        pool = Pool(threads)
+        pool.map(multi_run_wrapper,data_pull_args)
+
+def sort_files(file, path):
+    return os.path.getsize(path+'/'+file)
