@@ -168,7 +168,7 @@ def extract(path, field, avoid, output, missedoutput, tableshape, threads, tblcn
     else:
         table = pd.DataFrame(columns = ['filename', 'filetype','non_990','needed_pages', 'needed_page_length'])
         files = [f for f in os.listdir(path) if not f.startswith('.')]
-        files.sort(key=lambda file: sort_files(file, path))
+        files.sort(key=lambda file: sort_files(file, path), reverse=True)
         for i in range(threads):
             os.mkdir(path+"/tmp"+str(i))
         dir_sizes = [0]*threads
