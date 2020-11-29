@@ -2,12 +2,63 @@
 
 import os
 import pandas as pd
+from bs4 import BeautifulSoup
+import zipfile
+import requests
 home = os.path.expanduser('~')
 pd.set_option('display.max_colwidth', 255)
 from merlin_pull import *
 
 ### Setting merling_development folder as both a variable, and current working directory ###
 merlin_dev=os.getcwd()
+
+# Set the url to download the 990 forms from
+url = 'https://www.irs.gov/charities-non-profits/form-990-series-downloads'
+print("Entered url: " + str(url))
+# urlExample is used to test, urlFull for full extraction
+urlExample = 'https://apps.irs.gov/pub/epostcard/990/2020/01/download990pdf_01_2020_prefixes_01-04'
+urlFull = 'https://apps.irs.gov/pub/epostcard/990/2020/01/download990pdf'
+
+r = requests.get(url)
+soup = BeautifulSoup(r.text, 'html.parser')
+
+all_hrefs = soup.find_all('a')
+all_links = [link.get('href') for link in all_hrefs]
+zip_files = [dl for dl in all_links if dl and str(urlExample) in dl]
+#zip_files = [dl for dl in all_links if dl and str(urlFull) in dl]
+download_folder = merlin_dev + '/test_data'
+
+if not os.path.exists(download_folder):
+    os.makedirs(download_folder)
+
+tries = 0
+for zip_file in zip_files:
+    zip_filename = os.path.basename(zip_file)
+    
+    while tries < 3:
+        print("Starting download: " + str(zip_file))
+        r = requests.get(zip_file)
+        dl_path = os.path.join(download_folder, zip_filename)
+        with open(dl_path, 'wb') as z_file:
+            z_file.write(r.content)
+
+        # Unzip the file
+        print("Download finished. Starting extraction: " + str(zip_file))
+        # Use extract_dir to keep in seperate folders
+        #extract_dir = os.path.splitext(os.path.basename(zip_file))[0]
+        try:
+            with zipfile.ZipFile(dl_path) as z:
+                z.extractall(download_folder)
+                #z.extractall(os.path.join(download_folder, extract_dir))
+            print("Extraction finished. Starting cleanup: " + str(zip_file))
+            # Delete extracted zip file
+            os.remove(dl_path)
+            break
+        except zipfile.BadZipfile:
+            # the file didn't download correctly, so try again
+            # this is also a good place to log the error
+            pass
+        tries += 1
 
 ### This is here mostly as a safety just to preven multiprocessing from endlessly spawning additional threads ###
 if __name__ == "__main__":
