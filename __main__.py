@@ -1,3 +1,5 @@
+
+
 import os
 import pandas as pd
 home = os.path.expanduser('~')
@@ -26,7 +28,7 @@ if __name__ == "__main__":
 #                         to more if someone has access to a machine with many many cores though.
 #
 ###
-    
+
     extract(path=str(merlin_dev)+'/test_data',output=str(merlin_dev)+'/test_output/extracted_data.csv',
             missedoutput=str(merlin_dev)+'/test_output/missed_data.csv',field='dule I',avoid='example_avoid_value',
             tblcntntspath=str(merlin_dev)+'/test_output/tblcntnts.csv', tableshape=8, threads=5)
