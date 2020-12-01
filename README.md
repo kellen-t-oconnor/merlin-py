@@ -18,6 +18,10 @@ On windows, mac os or linux check to make sure that your system has ghostscript 
 <br>
 'pip3 install pandas'
 <br>
+'pip3 install beautifulsoup4'
+<br>
+'pip3 install requests'
+<br>
 'git clone https://github.com/kellen-t-oconnor/merlin-py.git ~/merlin-py'
 <br>
 <id>'cd ~/merlin-py; python3 \_\_main\_\_.py;'</id>

@@ -1,10 +1,9 @@
 
 
-import os
+import os, shutil
 import pandas as pd
 from bs4 import BeautifulSoup
 import requests
-import pytest_shutil
 home = os.path.expanduser('~')
 pd.set_option('display.max_colwidth', 255)
 import zip_downloader as zd
