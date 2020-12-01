@@ -19,4 +19,4 @@ On windows, mac os or linux check to make sure that your system has ghostscript 
 <id>'python3 \_\_main\_\_.py;'</id>
 <br>
 <br>
-The test includes 10 example 990 forms, some of which contain schedule I tables, and some of which do not. The code also contains commentary on \_\_main\_\_.py.
+The test includes 90 example 990 forms, some of which contain schedule I tables, and some of which do not. The code also contains commentary on \_\_main\_\_.py.
