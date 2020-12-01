@@ -13,10 +13,10 @@ home = os.path.expanduser('~')
 pd.set_option('display.max_colwidth', 255)
 import camelot
 import queue
-#import time
+import math
 
 
-def page_index (path, field, avoid):
+def page_index (path, field, avoid, thread):
     folder = path
     files = os.listdir(folder)[0:]
     ID_L3 = []
@@ -31,7 +31,7 @@ def page_index (path, field, avoid):
     for i, file in enumerate(files):
         progress_count=progress_count+1
         path = folder + "/" + files[i]
-        print("Generating table of contents... "+files[i]+"  "+str(progress_count)+"/"+str(num_files))
+        print("Thread " + str(thread) + " - Generating table of contents... "+files[i]+"  "+str(progress_count)+"/"+str(num_files))
         ID_L5 = []
         ID_L6 = []
         y = []
@@ -60,7 +60,6 @@ def page_index (path, field, avoid):
 def create_tblcntnts_artifact (index_results):
     index_results=np.array(index_results, dtype=object)
     index_shape=index_results.shape
-    field_d=index_shape[0]
     field_number=index_shape[1]
     table_pages=pd.DataFrame(columns = ['filename', 'filetype','non_990','needed_pages'])
     num = 0
@@ -74,15 +73,13 @@ def create_tblcntnts_artifact (index_results):
     table_pages['needed_page_length']=table_pages['needed_pages'].str.len()
     return table_pages
 
-def generate_tblcntnts (path, field, avoid, results): #, tblcntntspath):
-    index_results=page_index(path, field, avoid)
+def generate_tblcntnts (path, field, avoid, results, thread):
+    index_results=page_index(path, field, avoid, thread)
     table=create_tblcntnts_artifact(index_results)
     table['needed_pages'] = table['needed_pages'].astype(str)
     table['needed_pages'] = table['needed_pages'].str.replace(r"\[","")
     table['needed_pages'] = table['needed_pages'].str.replace(r"\]","")
     results.put(table)
-    #table.to_csv(tblcntntspath)
-    #return table
 
 def data_pull(table,path,out_shape, output_path, miss_path):
     missed_list=[]
@@ -115,9 +112,7 @@ def data_pull(table,path,out_shape, output_path, miss_path):
         else:
             #READD #print('Issue with '+row['filename']+'... Its likely that it didnt somehow meet the search critera.')
             missed_list.append(row['filename'])
-        #cycle_end=time.clock()
-        #print(cycle_end - cycle_time)
-    print("OUT OF LOOP")
+    print("Thread with " + str(num_pdf) + " files completed.")
 
 
 
@@ -127,30 +122,45 @@ def input_data_split(table,threads=1):
     if threads == 1:
         bins.append(table)
 
-    #if threads == 2:
-    #    table_length = len(table)
-    #    middle_of_file = table_length / 2
-    #    bin_1=table[:int(middle_of_file)]
-    #    bin_2=table[int(middle_of_file):]
-
     else:
-        table_length = len(table)
-        table.sort_values(by='needed_page_length', ascending=False)
-        bins_sizes = [0] * threads
+        ideal_bin_size = 0
         for index, row in table.iterrows():
-            place = bins_sizes.index(min(bins_sizes))
-            bins_sizes[place] += int(row['needed_page_length'])
-            bins[place] = bins[place].append(row)
+            ideal_bin_size += int(row['needed_page_length'])
+        ideal_bin_size = math.ceil(ideal_bin_size/threads)
+        current_bin_size = 0
+        current_bin = 0
+        i = 0
+        num_rows = table.shape[0]
+        while i < num_rows:
+            if int(table.iloc[i]['needed_page_length']) <= ideal_bin_size - current_bin_size:
+                bins[current_bin] = bins[current_bin].append(table.iloc[i])
+            else:
+                print("Start: " + table.iloc[i]['filename'])
+                pages = table.iloc[i]['needed_pages'].split(",")
+                pages1 = pages[0:ideal_bin_size-current_bin_size]
+                pages2 = pages[ideal_bin_size-current_bin_size:]
 
-        #bin_size = int(table_length/threads)
-        #current_file = 0
-        #for i in range(threads):
-        #    if i < threads - 1:
-        #        bins.append(table[current_file : current_file + bin_size])
-        #    else:
-        #        bins.append(table[current_file:])
-        #    current_file += bin_size
+                table.iloc[i]['needed_pages'] = ','.join(pages1)
+                table.iloc[i]['needed_page_length'] = len(pages1)
+                bins[current_bin] = bins[current_bin].append(table.iloc[i])
 
+                new_row = pd.DataFrame({
+                    'filename': [table.iloc[i]['filename']],
+                    'filetype': [table.iloc[i]['filetype']],
+                    'non_990': [table.iloc[i]['non_990']],
+                    'needed_pages': [','.join(pages2)],
+                    'needed_page_length': [len(pages2)]
+                })
+
+                table = insert_rows(i+1, table, new_row)
+                num_rows += 1
+                print("End: " + table.iloc[i]['filename'])
+            current_bin_size += int(table.iloc[i]['needed_page_length'])
+
+            if current_bin_size >= ideal_bin_size:
+                current_bin += 1
+                current_bin_size = 0
+            i += 1
     return bins
 
 def multi_run_wrapper(args):
@@ -160,11 +170,10 @@ def multi_run_wrapper(args):
 def extract(path, field, avoid, output, missedoutput, tableshape, threads, tblcntntspath):
     if threads == 1:
         results = queue.Queue()
-        generate_tblcntnts(path=path, field=field,avoid=avoid, results=results) #, tblcntntspath=tblcntntspath)
+        generate_tblcntnts(path=path, field=field,avoid=avoid, results=results, thread=1) #, tblcntntspath=tblcntntspath)
         table = results.get()
         table.to_csv(tblcntntspath)
         data_pull(table=table,path=path,out_shape=tableshape,output_path=output,miss_path=missedoutput)
-    #if threads == 2:
     else:
         table = pd.DataFrame(columns = ['filename', 'filetype','non_990','needed_pages', 'needed_page_length'])
         files = [f for f in os.listdir(path) if not f.startswith('.')]
@@ -176,12 +185,11 @@ def extract(path, field, avoid, output, missedoutput, tableshape, threads, tblcn
             dir = dir_sizes.index(min(dir_sizes))
             shutil.copy(path+'/'+file, path+"/tmp"+str(dir))
             dir_sizes[dir] += os.path.getsize(path+'/'+file)
-        #table = generate_tblcntnts(path=path, field=field,avoid=avoid, tblcntntspath=tblcntntspath)
         from threading import Thread
         thread_list = [None]*threads
         results = queue.Queue()
         for i in range(threads):
-            thread_list[i] = Thread(target=generate_tblcntnts, args=(path+"/tmp"+str(i), field, avoid, results)) #, tblcntntspath))
+            thread_list[i] = Thread(target=generate_tblcntnts, args=(path+"/tmp"+str(i), field, avoid, results, i)) #, tblcntntspath))
             thread_list[i].start()
         for i in range(threads):
             thread_list[i].join()
@@ -197,6 +205,10 @@ def extract(path, field, avoid, output, missedoutput, tableshape, threads, tblcn
         from multiprocessing import Pool
         pool = Pool(threads)
         pool.map(multi_run_wrapper,data_pull_args)
+        print("Thank you for using Merlin.py! Have a nice day!")
 
 def sort_files(file, path):
     return os.path.getsize(path+'/'+file)
+
+def insert_rows(index, df, new_rows):
+    return df[0:index].append(new_rows, ignore_index=True).append(df[index:], ignore_index=True)
