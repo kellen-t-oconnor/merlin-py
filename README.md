@@ -8,7 +8,7 @@ An initial push of code for extracting tabular data from PDF documents at scale.
 <br>
 On windows, mac os or linux check to make sure that your system has ghostscript installed. If not you can find it at: https://www.ghostscript.com/download/gsdnld.html
 <br><br>
-<strong>To installt:</strong>
+<strong>To install:</strong>
 <br>
 'git clone https://github.com/kellen-t-oconnor/merlin-py.git ~/merlin-py'
 <br>
