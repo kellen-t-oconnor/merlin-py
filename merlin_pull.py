@@ -105,12 +105,12 @@ def data_pull(table,path,out_shape, output_path, miss_path):
                     temp_df = temp_df.replace(to_replace='\n', value=' ', regex= True)
                     temp_df['file'] = row['filename']
                     temp_df.to_csv(output_path, mode='a', header='False')
-                    #READD #print("Tables found matching selected shape in file "+row['filename'])
+                    print("Tables found matching selected shape in file "+row['filename'])
                 else:
                     temp_df.to_csv(miss_path, mode='a', header='False')
-                    #READD #print("No tables matching selected shape in file "+row['filename']+" despite being flagged in step 1, appending to missed output file...")
+                    print("No tables matching selected shape in file "+row['filename']+" despite being flagged in step 1, appending to missed output file...")
         else:
-            #READD #print('Issue with '+row['filename']+'... Its likely that it didnt somehow meet the search critera.')
+            print('Issue with '+row['filename']+'... Its likely that it didnt somehow meet the search critera.')
             missed_list.append(row['filename'])
     print("Thread with " + str(num_pdf) + " files completed.")
 
