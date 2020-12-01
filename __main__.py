@@ -3,90 +3,66 @@
 import os
 import pandas as pd
 from bs4 import BeautifulSoup
-import zipfile
 import requests
+import pytest_shutil
 home = os.path.expanduser('~')
 pd.set_option('display.max_colwidth', 255)
+import zip_downloader as zd
 from merlin_pull import *
 
 ### Setting merling_development folder as both a variable, and current working directory ###
 merlin_dev=os.getcwd()
 
-# Set the url to download the 990 forms from
-url = 'https://www.irs.gov/charities-non-profits/form-990-series-downloads'
-print("Entered url: " + str(url))
-# urlExample is used to test, urlFull for full extraction
-urlExample = 'https://apps.irs.gov/pub/epostcard/990/2020/01/download990pdf_01_2020_prefixes_01-04'
-urlFull = 'https://apps.irs.gov/pub/epostcard/990/2020/01/download990pdf'
-
-r = requests.get(url)
-soup = BeautifulSoup(r.text, 'html.parser')
-
-all_hrefs = soup.find_all('a')
-all_links = [link.get('href') for link in all_hrefs]
-zip_files = [dl for dl in all_links if dl and str(urlExample) in dl]
-#zip_files = [dl for dl in all_links if dl and str(urlFull) in dl]
-download_folder = merlin_dev + '/test_data'
-
-if not os.path.exists(download_folder):
-    os.makedirs(download_folder)
-
-tries = 0
-for zip_file in zip_files:
-    zip_filename = os.path.basename(zip_file)
-    
-    while tries < 3:
-        print("Starting download: " + str(zip_file))
-        r = requests.get(zip_file)
-        dl_path = os.path.join(download_folder, zip_filename)
-        with open(dl_path, 'wb') as z_file:
-            z_file.write(r.content)
-
-        # Unzip the file
-        print("Download finished. Starting extraction: " + str(zip_file))
-        # Use extract_dir to keep in seperate folders
-        #extract_dir = os.path.splitext(os.path.basename(zip_file))[0]
-        try:
-            with zipfile.ZipFile(dl_path) as z:
-                z.extractall(download_folder)
-                #z.extractall(os.path.join(download_folder, extract_dir))
-            print("Extraction finished. Starting cleanup: " + str(zip_file))
-            # Delete extracted zip file
-            os.remove(dl_path)
-            break
-        except zipfile.BadZipfile:
-            # the file didn't download correctly, so try again
-            # this is also a good place to log the error
-            pass
-        tries += 1
-
 ### This is here mostly as a safety just to preven multiprocessing from endlessly spawning additional threads ###
 if __name__ == "__main__":
 
-### This is the main function that will take you from point A to point B as far as extracting data goes. ###
-#
-#   PATH                = path to our input PDFs, the extract module (merlin_pull) only handles machine readable files
-#                         OCRing must be done with merlin_process_raw to OCR image files with tesseract.
-#   OUTPUT              = path to where your eventual output data will be written to.
-#   MISSEDOUTPUT        = path to where your collection of flagged yet somehow not scraped data will be dumped. This file
-#                         is very very messy usually.
-#   FIELD               = this is the term or field that you want to pull out, usually a label for a given table
-#   AVOID               = this is the term or field that you want tabula / camelot to avoid pulling
-#   TBLCNTNTSPATH       = path to where the code will write a csv file for your table of contents on that first initial
-#                         scan.
-#   TABLESHAPE          = the column dimensions of the tables you're interested in. Schedule I tables are 8 columns wide.
-#   THREADS             = the number of threads you want to use. right now the choices are just 1 or 2, logic can be expanded
-#                         to more if someone has access to a machine with many many cores though.
-#
-###
+    # Set the url to download the 990 forms from
+    url = 'https://www.irs.gov/charities-non-profits/form-990-series-downloads'
+    print("Entered url: " + str(url))
+    # urlExample is used to test, urlFull for full extraction
+    urlExample = 'https://apps.irs.gov/pub/epostcard/990/2020/01/download990pdf_01_2020_prefixes_01-04'
+    urlFull = 'https://apps.irs.gov/pub/epostcard/990/2020/01/download990pdf'
 
-    extract(path=str(merlin_dev)+'/test_data',output=str(merlin_dev)+'/test_output/extracted_data.csv',
-            missedoutput=str(merlin_dev)+'/test_output/missed_data.csv',field='dule I',avoid='example_avoid_value',
-            tblcntntspath=str(merlin_dev)+'/test_output/tblcntnts.csv', tableshape=8, threads=5)
+    r = requests.get(url)
+    soup = BeautifulSoup(r.text, 'html.parser')
 
-    #extract(path=str(merlin_dev)+'/demo_data',output=str(merlin_dev)+'/demo_output/extracted_data.csv',
-    #        missedoutput=str(merlin_dev)+'/demo_output/missed_data.csv',field='dule I',avoid='example_avoid_value',
-    #        tblcntntspath=str(merlin_dev)+'/demo_output/tblcntnts.csv', tableshape=8, threads=5)
+    all_hrefs = soup.find_all('a')
+    all_links = [link.get('href') for link in all_hrefs]
+    zip_files = [dl for dl in all_links if dl and str(urlExample) in dl]
+    #zip_files = [dl for dl in all_links if dl and str(urlFull) in dl]
+
+    for zip_file in zip_files:
+        extract_dir = os.path.splitext(os.path.basename(zip_file))[0]
+        folder_dir = zd.get_zip(zip_file, merlin_dev)
+        ### This is the main function that will take you from point A to point B as far as extracting data goes. ###
+        #
+        #   PATH                = path to our input PDFs, the extract module (merlin_pull) only handles machine readable files
+        #                         OCRing must be done with merlin_process_raw to OCR image files with tesseract.
+        #   OUTPUT              = path to where your eventual output data will be written to.
+        #   MISSEDOUTPUT        = path to where your collection of flagged yet somehow not scraped data will be dumped. This file
+        #                         is very very messy usually.
+        #   FIELD               = this is the term or field that you want to pull out, usually a label for a given table
+        #   AVOID               = this is the term or field that you want tabula / camelot to avoid pulling
+        #   TBLCNTNTSPATH       = path to where the code will write a csv file for your table of contents on that first initial
+        #                         scan.
+        #   TABLESHAPE          = the column dimensions of the tables you're interested in. Schedule I tables are 8 columns wide.
+        #   THREADS             = the number of threads you want to use. right now the choices are just 1 or 2, logic can be expanded
+        #                         to more if someone has access to a machine with many many cores though.
+        #
+        ###
+        print("Zip cleanup finished. Starting processing: " + str(merlin_dev)+'\\test_data\\'+str(extract_dir))
+        extract(path=str(merlin_dev)+'/test_data/'+str(extract_dir),output=str(merlin_dev)+'/test_output/extracted_data.csv',
+                missedoutput=str(merlin_dev)+'/test_output/missed_data.csv',field='dule I',avoid='example_avoid_value',
+                tblcntntspath=str(merlin_dev)+'/test_output/tblcntnts.csv', tableshape=8, threads=5)
+
+        #extract(path=str(merlin_dev)+'/demo_data',output=str(merlin_dev)+'/demo_output/extracted_data.csv',
+        #        missedoutput=str(merlin_dev)+'/demo_output/missed_data.csv',field='dule I',avoid='example_avoid_value',
+        #        tblcntntspath=str(merlin_dev)+'/demo_output/tblcntnts.csv', tableshape=8, threads=5)
+            
+        # Delete extracted files before stating the next download
+        print("Processing finished. Starting folder cleanup: " + str(folder_dir))
+        shutil.rmtree(folder_dir)
+            
 
 ###
 #

@@ -118,7 +118,7 @@ def data_pull(table,path,out_shape, output_path, miss_path):
             missed_list.append(row['filename'])
         #cycle_end=time.clock()
         #print(cycle_end - cycle_time)
-    print("OUT OF LOOP")
+    print("Data Extracted")
 
 
 
