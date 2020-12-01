@@ -103,6 +103,7 @@ def data_pull(table,path,out_shape, output_path, miss_path):
                 temp_df=i.df
                 if temp_df.shape[1]==out_shape:
                     temp_df = temp_df.replace(to_replace='\n', value=' ', regex= True)
+                    temp_df = temp_df.replace({3: ' '}, {3: ''}, regex= True)
                     temp_df['file'] = row['filename']
                     temp_df.to_csv(output_path, mode='a', header='False')
                     print("Tables found matching selected shape in file "+row['filename'])
