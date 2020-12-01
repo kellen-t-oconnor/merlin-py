@@ -33,10 +33,6 @@ if __name__ == "__main__":
             missedoutput=str(merlin_dev)+'/test_output/missed_data.csv',field='dule I',avoid='example_avoid_value',
             tblcntntspath=str(merlin_dev)+'/test_output/tblcntnts.csv', tableshape=8, threads=5)
 
-    #extract(path=str(merlin_dev)+'/demo_data',output=str(merlin_dev)+'/demo_output/extracted_data.csv',
-    #        missedoutput=str(merlin_dev)+'/demo_output/missed_data.csv',field='dule I',avoid='example_avoid_value',
-    #        tblcntntspath=str(merlin_dev)+'/demo_output/tblcntnts.csv', tableshape=8, threads=5)
-
 ###
 #
 #       General explanation of code flow:
